@@ -8,8 +8,8 @@ const io = socketIo(server);
 
 let rooms = {};
 
-// 題目列表
-const topics = ['樹', '房子', '太陽', '小貓', '車子', '山', '河流', '雲', '船', '飛機'];
+// 隨機題庫
+const words = ['樹', '房子', '汽車', '貓', '狗', '花', '鳥', '電腦', '手機', '桌子'];
 
 app.use(express.static('public'));
 
@@ -17,16 +17,23 @@ io.on('connection', (socket) => {
   console.log(`玩家 ${socket.id} 已連接`);
 
   socket.on('joinRoom', (roomId, playerName) => {
+    console.log(`玩家 ${playerName} 嘗試加入房間 ${roomId}`);
+    
     if (!rooms[roomId]) {
       rooms[roomId] = { players: [], gameStarted: false };
+      console.log(`房間 ${roomId} 不存在，創建新房間`);
     }
 
     const room = rooms[roomId];
     room.players.push({ id: socket.id, name: playerName });
     socket.join(roomId);
 
+    console.log(`玩家 ${playerName} 加入房間 ${roomId}`);
+    console.log(`房間 ${roomId} 的玩家：`, room.players);
+
     io.to(roomId).emit('updatePlayers', room.players);
 
+    // 如果玩家是房主，告知可以開始遊戲
     if (room.players.length === 1) {
       socket.emit('isRoomOwner');
     }
@@ -40,35 +47,34 @@ io.on('connection', (socket) => {
       // 隨機選擇畫畫者
       const drawerIndex = Math.floor(Math.random() * room.players.length);
       room.drawer = room.players[drawerIndex];
-
+      
       // 隨機選擇題目
-      room.word = topics[Math.floor(Math.random() * topics.length)];
+      const randomWord = words[Math.floor(Math.random() * words.length)];
+      room.word = randomWord;
 
-      console.log(`房間 ${roomId} 遊戲開始，題目為：${room.word}`);
-
-      // 發送遊戲開始的訊息
+      // 發送遊戲開始的訊息，並且給畫畫者題目
       room.players.forEach(player => {
         if (player.id === room.drawer.id) {
+          // 只有畫畫者能看到題目
           io.to(player.id).emit('gameStarted', {
             drawer: room.drawer,
-            word: room.word,  // 傳送隨機題目給畫畫者
+            word: room.word,  // 這裡才會傳送題目給畫畫者
           });
-          console.log(`題目已發送給畫畫者 ${player.name} (${player.id})`);
         } else {
+          // 非畫畫者看不到題目
           io.to(player.id).emit('gameStarted', {
             drawer: room.drawer,
             word: null,  // 非畫畫者不顯示題目
           });
         }
       });
-    } else {
-      socket.emit('error', '無法開始遊戲，玩家人數不足或房間不存在。');
     }
   });
 
   socket.on('draw', (roomId, data) => {
     const room = rooms[roomId];
     if (room && room.drawer.id === socket.id) {
+      // 只有畫畫者才能畫畫
       socket.to(roomId).emit('draw', data);
     }
   });
@@ -76,6 +82,7 @@ io.on('connection', (socket) => {
   socket.on('clearCanvas', (roomId) => {
     const room = rooms[roomId];
     if (room && room.drawer.id === socket.id) {
+      // 只有畫畫者才能清除畫布
       io.to(roomId).emit('clearCanvas');
     }
   });

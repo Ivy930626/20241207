@@ -3,132 +3,41 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>你畫我猜</title>
+  <title>Guess Game</title>
+  <script src="/socket.io/socket.io.js"></script>
+  <script src="client.js" defer></script>
   <style>
-    body {
-      font-family: Arial, sans-serif;
-      text-align: center;
-      margin: 20px;
+    #room-screen, #game-screen {
+      display: none;
     }
     canvas {
       border: 1px solid black;
-      background-color: #f0f0f0;
-    }
-    #guess-input {
-      margin-top: 10px;
-    }
-    #guess {
-      padding: 5px;
-      font-size: 16px;
-    }
-    button {
-      padding: 5px 10px;
-      font-size: 16px;
-      margin-left: 5px;
-    }
-    #game-status {
-      margin-top: 20px;
-      font-size: 18px;
-      font-weight: bold;
     }
   </style>
 </head>
 <body>
-  <h1>你畫我猜</h1>
- 
-  <canvas id="gameCanvas" width="500" height="500"></canvas>
- 
-  <div id="guess-input">
-    <input type="text" id="guess" placeholder="猜畫的東西..." />
-    <button onclick="sendGuess()">猜！</button>
+  <!-- 登入畫面 -->
+  <div id="login-screen">
+    <h1>Guess Game</h1>
+    <input id="room-id" placeholder="輸入房間名稱">
+    <input id="player-name" placeholder="輸入玩家名稱">
+    <button id="join-room-btn">加入房間</button>
   </div>
- 
-  <div id="game-status">等待其他玩家加入遊戲...</div>
 
+  <!-- 房間畫面 -->
+  <div id="room-screen">
+    <h2>房間</h2>
+    <ul id="player-list"></ul>
+    <button id="start-game-btn" style="display: none;">開始遊戲</button>
+  </div>
 
-  <script src="/socket.io/socket.io.js"></script>
-  <script>
-    const socket = io();
-    const canvas = document.getElementById('gameCanvas');
-    const ctx = canvas.getContext('2d');
-    let isDrawing = false;
-    let isDrawer = false;
-    let currentPlayer = 0;
-    let wordToDraw = '';  // 待畫的字，這會從伺服器接收
-
-
-    // 設定畫布事件
-    canvas.addEventListener('mousedown', (e) => {
-      if (isDrawer) {
-        isDrawing = true;
-        ctx.beginPath();
-        ctx.moveTo(e.offsetX, e.offsetY);
-      }
-    });
-
-
-    canvas.addEventListener('mousemove', (e) => {
-      if (isDrawing && isDrawer) {
-        ctx.lineTo(e.offsetX, e.offsetY);
-        ctx.stroke();
-      }
-    });
-
-
-    canvas.addEventListener('mouseup', () => {
-      if (isDrawing && isDrawer) {
-        isDrawing = false;
-        socket.emit('draw', { x: event.offsetX, y: event.offsetY });
-      }
-    });
-
-
-    // 接收伺服器消息，更新遊戲狀態
-    socket.on('turn', (message) => {
-      document.getElementById('game-status').innerText = message;
-      if (message.includes('畫畫')) {
-        isDrawer = true;
-      } else {
-        isDrawer = false;
-      }
-    });
-
-
-    socket.on('correctGuess', (message) => {
-      alert(message);  // 顯示猜對訊息
-    });
-
-
-    socket.on('newTurn', (nextPlayer) => {
-      currentPlayer = nextPlayer;
-      if (currentPlayer === 0) {
-        document.getElementById('game-status').innerText = '輪到玩家1畫圖';
-      } else {
-        document.getElementById('game-status').innerText = '輪到玩家2畫圖';
-      }
-    });
-
-
-    // 處理玩家猜測
-    function sendGuess() {
-      const guess = document.getElementById('guess').value;
-      if (guess) {
-        socket.emit('guess', guess);
-      }
-    }
-
-
-    // 處理畫圖訊息
-    socket.on('draw', (data) => {
-      ctx.lineTo(data.x, data.y);
-      ctx.stroke();
-    });
-
-
-    // 接收伺服器發送的待畫的字
-    socket.on('setWordToDraw', (word) => {
-      wordToDraw = word;  // 設定待畫的字
-    });
-  </script>
+  <!-- 遊戲畫面 -->
+  <div id="game-screen">
+    <div id="word-to-draw"></div>
+    <canvas id="drawing-canvas" width="500" height="500"></canvas>
+    <input id="guess-input" placeholder="猜測答案">
+    <button id="guess-btn">提交猜測</button>
+    <button id="clear-btn" style="display: none;">清除畫布</button>
+  </div>
 </body>
 </html>
